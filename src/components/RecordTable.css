@@ -1,0 +1,35 @@
+table {
+  width: 100%;
+  max-width: 1100px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  text-align: center;
+  padding: 4px;
+  min-width: 24px;
+}
+
+th:first-child, td:first-child {
+  width: 90px;
+}
+
+th:nth-child(2), td:nth-child(2) {
+  width: 60px;
+}
+
+th:last-child, td:last-child {
+  width: 40px;
+}
+
+input[type="text"] {
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+tbody tr:first-child td {
+  border-top: 2px solid #000;
+} 

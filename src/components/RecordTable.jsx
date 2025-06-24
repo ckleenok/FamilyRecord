@@ -39,6 +39,7 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
   const [categoryFixed, setCategoryFixed] = useState(getInitialState().categoryFixed);
   const [editMode, setEditMode] = useState(getInitialState().editMode);
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const fetchRecords = async () => {
@@ -126,12 +127,13 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
   };
 
   // 카테고리 이름 저장
-  const handleSave = idx => {
+  const handleCategorySave = idx => {
     setCategories(categories.map((v, i) => i === idx ? categoryInputs[idx] : v));
     setCategoryFixed(categoryFixed.map((v, i) => i === idx ? true : v));
     setEditMode(editMode.map((v, i) => i === idx ? false : v));
   };
 
+  // 셀 클릭 핸들러: 로컬 상태만 변경
   const handleCellClick = (categoryName, name, day, categoryIndex) => {
     if (!editable) return;
     const today = new Date();
@@ -161,27 +163,69 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
     const key = `${categoryName}-${name}-${day}`;
     setRecords(prevRecords => {
       const newRecords = { ...prevRecords };
-      let newValue;
       if (newRecords[key] === 'O') {
-        newValue = 'X';
+        newRecords[key] = 'X';
       } else if (newRecords[key] === 'X') {
-        newValue = undefined;
-      } else {
-        newValue = 'O';
-      }
-      if (newValue) {
-        newRecords[key] = newValue;
-      } else {
         delete newRecords[key];
+      } else {
+        newRecords[key] = 'O';
       }
-      saveRecord(categoryName, name, day, newValue || null);
       return newRecords;
     });
   };
 
+  // 저장 버튼 핸들러: Supabase에 현재 상태를 통째로 저장
+  const handleSave = async () => {
+    if (!editable) return;
+    setIsSaving(true);
+
+    // 1. 현재 월의 모든 기록 삭제
+    const { error: deleteError } = await supabase
+      .from('records')
+      .delete()
+      .match({ year, month });
+
+    if (deleteError) {
+      alert(`데이터 저장 중 오류가 발생했습니다: ${deleteError.message}`);
+      setIsSaving(false);
+      return;
+    }
+
+    // 2. 현재 로컬 상태의 기록들을 DB에 맞는 형태로 변환
+    const recordsToInsert = Object.entries(records).map(([key, value]) => {
+      const [category, name, day] = key.split('-');
+      return {
+        year,
+        month,
+        day: parseInt(day, 10),
+        category,
+        name,
+        value,
+      };
+    });
+
+    // 3. 변환된 기록들을 삽입
+    if (recordsToInsert.length > 0) {
+      const { error: insertError } = await supabase.from('records').insert(recordsToInsert);
+      if (insertError) {
+        alert(`데이터 저장 중 오류가 발생했습니다: ${insertError.message}`);
+        setIsSaving(false);
+        return;
+      }
+    }
+
+    setIsSaving(false);
+    alert('데이터가 성공적으로 저장되었습니다.');
+  };
+
   return (
     <div>
-      {loading && <div style={{color:'gray', marginBottom:8}}>데이터 불러오는 중...</div>}
+      <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button onClick={handleSave} disabled={loading || isSaving || !editable} className="save-button">
+          {isSaving ? '저장 중...' : '변경사항 저장'}
+        </button>
+        {loading && <div style={{color:'gray'}}>데이터 불러오는 중...</div>}
+      </div>
       <table>
         <thead>
           <tr>
@@ -214,7 +258,7 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
                           style={{width: 90}}
                           disabled={categoryFixed[catIdx] || !editable}
                         />
-                        <button style={{marginLeft: 6, fontSize: '0.9em'}} onClick={() => handleSave(catIdx)} disabled={!editable}>저장</button>
+                        <button style={{marginLeft: 6, fontSize: '0.9em'}} onClick={() => handleCategorySave(catIdx)} disabled={!editable}>저장</button>
                       </>
                     )}
                   </td>

@@ -41,6 +41,20 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 모바일 기기 + 세로모드 체크 함수
+  const isMobilePortrait = () => {
+    const ua = navigator.userAgent;
+    const isMobile = /iPhone|Android|Mobile|iPad|iPod/i.test(ua);
+    return isMobile && window.innerHeight > window.innerWidth;
+  };
+
+  const [isMobilePortraitMode, setIsMobilePortraitMode] = useState(isMobilePortrait());
+  useEffect(() => {
+    const handleResize = () => setIsMobilePortraitMode(isMobilePortrait());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     const fetchRecords = async () => {
       setLoading(true);
@@ -179,36 +193,48 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
     if (!editable) return;
     setIsSaving(true);
 
-    // 1. 현재 월의 모든 기록 삭제
-    const { error: deleteError } = await supabase
-      .from('records')
-      .delete()
-      .match({ year, month });
+    const upsertRows = [];
+    const deleteRows = [];
 
-    if (deleteError) {
-      alert(`데이터 저장 중 오류가 발생했습니다: ${deleteError.message}`);
-      setIsSaving(false);
-      return;
+    for (let catIdx = 0; catIdx < categories.length; catIdx++) {
+      for (let nameIdx = 0; nameIdx < NAMES.length; nameIdx++) {
+        for (let day = 1; day <= daysInMonth; day++) {
+          const key = `${categories[catIdx]}-${NAMES[nameIdx]}-${day}`;
+          const value = records[key];
+          const row = {
+            year,
+            month,
+            day,
+            category: categories[catIdx],
+            name: NAMES[nameIdx],
+          };
+          if (value === undefined || value === null) {
+            deleteRows.push(row);
+          } else {
+            upsertRows.push({ ...row, value });
+          }
+        }
+      }
     }
 
-    // 2. 현재 로컬 상태의 기록들을 DB에 맞는 형태로 변환
-    const recordsToInsert = Object.entries(records).map(([key, value]) => {
-      const [category, name, day] = key.split('-');
-      return {
-        year,
-        month,
-        day: parseInt(day, 10),
-        category,
-        name,
-        value,
-      };
-    });
+    // 1. value가 null/undefined인 row는 delete
+    if (deleteRows.length > 0) {
+      for (const row of deleteRows) {
+        await supabase
+          .from('records')
+          .delete()
+          .match(row);
+      }
+    }
 
-    // 3. 변환된 기록들을 삽입
-    if (recordsToInsert.length > 0) {
-      const { error: insertError } = await supabase.from('records').insert(recordsToInsert);
-      if (insertError) {
-        alert(`데이터 저장 중 오류가 발생했습니다: ${insertError.message}`);
+    // 2. value가 있는 row만 upsert
+    if (upsertRows.length > 0) {
+      const { error: upsertError } = await supabase
+        .from('records')
+        .upsert(upsertRows, { onConflict: ['year', 'month', 'day', 'category', 'name'] });
+
+      if (upsertError) {
+        alert(`데이터 저장 중 오류가 발생했습니다: ${upsertError.message}`);
         setIsSaving(false);
         return;
       }
@@ -217,6 +243,17 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
     setIsSaving(false);
     alert('데이터가 성공적으로 저장되었습니다.');
   };
+
+  // 최근 7일 계산
+  const getRecent7Days = () => {
+    const today = new Date();
+    const lastDay = Math.min(daysInMonth, today.getDate());
+    const firstDay = Math.max(1, lastDay - 6);
+    return Array.from({ length: lastDay - firstDay + 1 }, (_, i) => firstDay + i);
+  };
+  const daysToShow = isMobilePortraitMode
+    ? getRecent7Days()
+    : Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
     <div>
@@ -231,7 +268,7 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
           <tr>
             <th>종목</th>
             <th>이름</th>
-            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => (
+            {daysToShow.map(day => (
               <th key={day}>{day}</th>
             ))}
             <th>점수</th>
@@ -244,27 +281,11 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
               <tr key={`${cat}-${name}`} style={{ backgroundColor: DEFAULT_CATEGORIES[catIdx].color }}>
                 {nameIndex === 0 && (
                   <td rowSpan={NAMES.length} style={{backgroundColor: 'white', color: 'black', minWidth: 120}}>
-                    {categoryFixed[catIdx] ? (
-                      <>
-                        {cat}
-                        <button style={{marginLeft: 6, fontSize: '0.9em'}} onClick={() => handleEdit(catIdx)} disabled={!categoryFixed[catIdx] || !editable}>수정</button>
-                      </>
-                    ) : (
-                      <>
-                        <input 
-                          type="text" 
-                          value={categoryInputs[catIdx]} 
-                          onChange={e => handleInputChange(catIdx, e.target.value)}
-                          style={{width: 90}}
-                          disabled={categoryFixed[catIdx] || !editable}
-                        />
-                        <button style={{marginLeft: 6, fontSize: '0.9em'}} onClick={() => handleCategorySave(catIdx)} disabled={!editable}>저장</button>
-                      </>
-                    )}
+                    {cat}
                   </td>
                 )}
                 <td style={{color: 'black'}}>{name}</td>
-                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+                {daysToShow.map(day => {
                   const editableCell = editable && isCellEditable(day, catIdx);
                   return (
                     <td 

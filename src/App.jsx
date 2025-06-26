@@ -68,13 +68,6 @@ function App() {
     localStorage.setItem('dailyRecord-month', month);
   }, [month]);
 
-  const handleReset = () => {
-    if (window.confirm(`${year}년 ${month}월의 모든 기록을 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
-      localStorage.removeItem(`daily-record-${year}-${month}`);
-      setResetKey(prevKey => prevKey + 1);
-    }
-  };
-
   const renderMonthTable = () => {
     const rows = [];
     for (let i = 0; i < 2; i++) {
@@ -102,12 +95,6 @@ function App() {
     <div className="app-container">
       <h1>우리 집 생활 기록표</h1>
       
-      <div style={{ marginBottom: '16px' }}>
-        <button onClick={handleReset} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: isCurrentMonth ? 'pointer' : 'not-allowed' }} disabled={!isCurrentMonth}>
-          데이터 리셋
-        </button>
-      </div>
-
       <h2>{displayDate}</h2>
       <RecordTable key={resetKey} year={year} month={month} editable={isCurrentMonth} daysInMonth={daysInMonth} getThreeMonthAverage={getThreeMonthAverage} />
 

@@ -41,16 +41,10 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 모바일 기기 + 세로모드 체크 함수
-  const isMobilePortrait = () => {
-    const ua = navigator.userAgent;
-    const isMobile = /iPhone|Android|Mobile|iPad|iPod/i.test(ua);
-    return isMobile && window.innerHeight > window.innerWidth;
-  };
-
-  const [isMobilePortraitMode, setIsMobilePortraitMode] = useState(isMobilePortrait());
+  // 모바일 화면 여부 체크
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 600);
   useEffect(() => {
-    const handleResize = () => setIsMobilePortraitMode(isMobilePortrait());
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -217,14 +211,22 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
       }
     }
 
-    // 1. value가 null/undefined인 row는 delete
+    // 1. value가 null/undefined인 row는 한 번에 delete
     if (deleteRows.length > 0) {
-      for (const row of deleteRows) {
-        await supabase
-          .from('records')
-          .delete()
-          .match(row);
-      }
+      const years = deleteRows.map(r => r.year);
+      const months = deleteRows.map(r => r.month);
+      const days = deleteRows.map(r => r.day);
+      const categoriesArr = deleteRows.map(r => r.category);
+      const names = deleteRows.map(r => r.name);
+
+      await supabase
+        .from('records')
+        .delete()
+        .in('year', years)
+        .in('month', months)
+        .in('day', days)
+        .in('category', categoriesArr)
+        .in('name', names);
     }
 
     // 2. value가 있는 row만 upsert
@@ -251,9 +253,7 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
     const firstDay = Math.max(1, lastDay - 6);
     return Array.from({ length: lastDay - firstDay + 1 }, (_, i) => firstDay + i);
   };
-  const daysToShow = isMobilePortraitMode
-    ? getRecent7Days()
-    : Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const daysToShow = isMobile ? getRecent7Days() : Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
     <div>
@@ -281,7 +281,22 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
               <tr key={`${cat}-${name}`} style={{ backgroundColor: DEFAULT_CATEGORIES[catIdx].color }}>
                 {nameIndex === 0 && (
                   <td rowSpan={NAMES.length} style={{backgroundColor: 'white', color: 'black', minWidth: 120}}>
-                    {cat}
+                    {categoryFixed[catIdx] ? (
+                      <>
+                        {cat}
+                      </>
+                    ) : (
+                      <>
+                        <input 
+                          type="text" 
+                          value={categoryInputs[catIdx]} 
+                          onChange={e => handleInputChange(catIdx, e.target.value)}
+                          style={{width: 90}}
+                          disabled={categoryFixed[catIdx] || !editable}
+                        />
+                        <button style={{marginLeft: 6, fontSize: '0.9em'}} onClick={() => handleCategorySave(catIdx)} disabled={!editable}>저장</button>
+                      </>
+                    )}
                   </td>
                 )}
                 <td style={{color: 'black'}}>{name}</td>

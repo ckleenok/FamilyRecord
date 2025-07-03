@@ -255,6 +255,17 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
   };
   const daysToShow = isMobile ? getRecent7Days() : Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
+  // 각 멤버별 총점 계산
+  const getMemberTotalScore = name => {
+    let total = 0;
+    for (let catIdx = 0; catIdx < categories.length; catIdx++) {
+      for (let day = 1; day <= daysInMonth; day++) {
+        if (records[`${categories[catIdx]}-${name}-${day}`] === 'O') total++;
+      }
+    }
+    return total;
+  };
+
   return (
     <div>
       <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -262,6 +273,13 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
           {isSaving ? '저장 중...' : '변경사항 저장'}
         </button>
         {loading && <div style={{color:'gray'}}>데이터 불러오는 중...</div>}
+      </div>
+      <div style={{ marginBottom: '12px', fontWeight: 'bold', fontSize: '1.1em', color: '#333' }}>
+        {NAMES.map((name, idx) => (
+          <span key={name} style={{ marginRight: 18 }}>
+            {name}: {getMemberTotalScore(name)}
+          </span>
+        ))}
       </div>
       <table>
         <thead>

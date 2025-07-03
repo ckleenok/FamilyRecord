@@ -274,7 +274,7 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
         </button>
         {loading && <div style={{color:'gray'}}>데이터 불러오는 중...</div>}
       </div>
-      <div style={{ marginBottom: '12px', fontWeight: 'bold', fontSize: '1.1em', color: '#333' }}>
+      <div style={{ marginBottom: '12px', fontWeight: 'bold', fontSize: '1.1em', color: '#fff', textAlign: 'center', width: '100%' }}>
         {NAMES.map((name, idx) => (
           <span key={name} style={{ marginRight: 18 }}>
             {name}: {getMemberTotalScore(name)}

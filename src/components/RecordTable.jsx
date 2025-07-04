@@ -269,7 +269,11 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
   // 각 멤버별 달성률(%) 계산
   const getMemberAchievementPercent = name => {
     const totalScore = getMemberTotalScore(name);
-    const maxScore = categories.length * daysInMonth;
+    // 오늘 날짜까지만 카운트
+    const today = new Date();
+    const isCurrentMonth = (today.getFullYear() === year && today.getMonth() + 1 === month);
+    const lastDay = isCurrentMonth ? today.getDate() : daysInMonth;
+    const maxScore = categories.length * lastDay;
     if (maxScore === 0) return '0%';
     return Math.round((totalScore / maxScore) * 100) + '%';
   };

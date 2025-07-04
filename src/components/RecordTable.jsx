@@ -266,6 +266,14 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
     return total;
   };
 
+  // 각 멤버별 달성률(%) 계산
+  const getMemberAchievementPercent = name => {
+    const totalScore = getMemberTotalScore(name);
+    const maxScore = categories.length * daysInMonth;
+    if (maxScore === 0) return '0%';
+    return Math.round((totalScore / maxScore) * 100) + '%';
+  };
+
   return (
     <div>
       <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -278,6 +286,7 @@ const RecordTable = ({ year, month, editable, daysInMonth, getThreeMonthAverage 
         {NAMES.map((name, idx) => (
           <span key={name} style={{ marginRight: 18 }}>
             {name}: {getMemberTotalScore(name)}
+            ({getMemberAchievementPercent(name)})
           </span>
         ))}
       </div>
